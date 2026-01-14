@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" sizes="32x32" href="/images/favicon-32x32.png">
+    <link rel="icon" sizes="16x16" href="/images/favicon-16x16.png">
+    <title>摄影创作特征数据分析</title>
+    <script src="https://s4.zstatic.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <script src="https://s4.zstatic.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #00897B;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 40px;
+            font-weight: 300;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .chart-card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+            padding: 20px;
+            overflow: hidden;
+        }
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            padding-left: 10px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .chart-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .chart-box {
+            width: 100%;
+            height: 400px;
+        }
+
+        #calendarChart { height: auto; min-height: 300px; }
+        #mapChart { height: 600px; }
+        #colorRingChart, #hueRingChart { height: 800px; }
+        #seasonalColorChart { height: 250px; }
+        #sankeyChart { height: 600px; }
+        #quadrantChart { height: 600px; }
+        #timeDistChart { height: 500px; }
+
+        .grid-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 20px;
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            h1 {
+                font-size: 22px;
+                margin-bottom: 25px;
+            }
+            .container {
+                padding: 0 5px;
+            }
+            .chart-card {
+                padding: 15px;
+                margin-bottom: 20px;
+                margin-left: 5px;
+                margin-right: 5px;
+            }
+            .chart-title {
+                font-size: 16px;
+            }
+            .grid-row {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .chart-box {
+                min-width: 500px;
+            }
+            
+            #calendarChart { min-width: 800px; } 
+            #focalShutterHeatmap { min-width: 600px; }
+            #shutterChart, #focalChart, #timeDistChart { min-width: 550px; }
+            #evolutionChart { min-width: 700px; }
+            
+            #mapChart { height: 450px; min-width: 450px; }
+            #colorRingChart, #hueRingChart { height: 500px; min-width: 500px; }
+            #sankeyChart, #quadrantChart { height: 500px; min-width: 500px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>摄影创作数据足迹报告</h1>
+    
+    <div id="loading" class="loading">正在加载数据...</div>
+    <div id="content" style="display: none;">
+        
+        <div class="chart-card">
+            <div class="chart-title">摄影创作日历</div>
+            <div class="chart-wrapper">
+                <div id="calendarChart" class="chart-box"></div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">拍摄地理分布</div>
+            <div class="chart-wrapper">
+                <div id="mapChart" class="chart-box"></div>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="chart-card">
+                <div class="chart-title">等效焦距偏好</div>
+                <div class="chart-wrapper">
+                    <div id="focalChart" class="chart-box"></div>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">画面影调亮度分布</div>
+                <div class="chart-wrapper">
+                    <div id="toneKeyChart" class="chart-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="chart-card">
+                <div class="chart-title">画面对比度风格</div>
+                <div class="chart-wrapper">
+                    <div id="toneContrastChart" class="chart-box"></div>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">室内外场景比例</div>
+                <div class="chart-wrapper">
+                    <div id="sceneChart" class="chart-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="chart-card">
+                <div class="chart-title">构图比例分布</div>
+                <div class="chart-wrapper">
+                    <div id="compChart" class="chart-box"></div>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">色温倾向分布</div>
+                <div class="chart-wrapper">
+                    <div id="tempChart" class="chart-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="chart-card">
+                <div class="chart-title">色彩饱和度分布</div>
+                <div class="chart-wrapper">
+                    <div id="satChart" class="chart-box"></div>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">快门速度分布</div>
+                <div class="chart-wrapper">
+                    <div id="shutterChart" class="chart-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">全天拍摄时段分布</div>
+            <div class="chart-wrapper">
+                <div id="timeDistChart" class="chart-box"></div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">色彩演进时间轴</div>
+            <div class="chart-wrapper">
+                <div id="colorRingChart" class="chart-box"></div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">主色调色相分布</div>
+            <div class="chart-wrapper">
+                <div id="hueRingChart" class="chart-box"></div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">创作习惯随时间的演变</div>
+            <div class="chart-wrapper">
+                <div id="evolutionChart" class="chart-box"></div>
+            </div>
+        </div>
+
+        <div class="grid-row">
+            <div class="chart-card">
+                <div class="chart-title">焦距与快门速度相关性分析</div>
+                <div class="chart-wrapper">
+                    <div id="focalShutterHeatmap" class="chart-box"></div>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">季节平均色彩特征</div>
+                <div class="chart-wrapper">
+                    <div id="seasonalColorChart" class="chart-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">拍摄地点转移特征</div>
+            <div class="chart-wrapper">
+                <div id="sankeyChart" class="chart-box"></div>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-title">色彩特征情绪象限</div>
+            <div class="chart-wrapper">
+                <div id="quadrantChart" class="chart-box"></div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const THEME_COLOR = '#00897B';
+
+    function parseShutter(s) {
+        if (!s || s === 'Unknown') return -1;
+        if (typeof s === 'number') return s;
+        if (s.toString().includes('/')) {
+            let parts = s.split('/');
+            return parseFloat(parts[0]) / parseFloat(parts[1]);
+        }
+        return parseFloat(s);
+    }
+
+    function countBy(data, key) {
+        const counts = {};
+        data.forEach(item => {
+            const val = item[key] || 'Unknown';
+            counts[val] = (counts[val] || 0) + 1;
+        });
+        return counts;
+    }
+
+    function normalizeProvinceName(name) {
+        if (!name || name === 'Unknown' || name === '未知') return null;
+        if (['北京', '天津', '上海', '重庆'].includes(name)) return name + '市';
+        if (name === '内蒙古') return '内蒙古自治区';
+        if (name === '广西') return '广西壮族自治区';
+        if (name === '西藏') return '西藏自治区';
+        if (name === '宁夏') return '宁夏回族自治区';
+        if (name === '新疆') return '新疆维吾尔自治区';
+        if (name === '香港') return '香港特别行政区';
+        if (name === '澳门') return '澳门特别行政区';
+        if (!name.endsWith('省') && !name.endsWith('市') && !name.endsWith('区')) return name + '省';
+        return name;
+    }
+
+    function hexToRgb(hex) {
+        var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
+    }
+    
+    function rgbToHex(r, g, b) {
+        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    function rgbToHsl(r, g, b) {
+        r /= 255, g /= 255, b /= 255;
+        var max = Math.max(r, g, b), min = Math.min(r, g, b);
+        var h, s, l = (max + min) / 2;
+        if (max == min) { h = s = 0; } else {
+            var d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return { h: h, s: s, l: l };
+    }
+
+    function hslToRgb(h, s, l) {
+        var r, g, b;
+        if (s == 0) { r = g = b = l; } else {
+            var hue2rgb = function(p, q, t) {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                return p;
+            }
+            var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            var p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1 / 3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1 / 3);
+        }
+        return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+    }
+
+    $(document).ready(function() {
+        $.get('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json', function (chinaJson) {
+            echarts.registerMap('china', chinaJson);
+            fetch('data.json')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('content').style.display = 'block';
+                    initCharts(data);
+                })
+                .catch(err => {
+                    document.getElementById('loading').innerHTML = '无法读取 data.json';
+                    console.error(err);
+                });
+        });
+    });
+
+    function initCharts(data) {
+        const renderType = { renderer: 'svg' };
+
+        const dateCounts = countBy(data, 'date_taken');
+        const chartData = Object.entries(dateCounts).map(([date, count]) => [date, count]);
+        const years = [...new Set(Object.keys(dateCounts).map(d => d.split('-')[0]))]
+            .filter(y => !isNaN(y))
+            .sort((a, b) => a - b); 
+        if (years.length === 0) years.push(new Date().getFullYear());
+
+        const yearBlockHeight = 140; 
+        const yearGap = 40; 
+        const totalHeight = years.length * (yearBlockHeight + yearGap) + 80;
+
+        document.getElementById('calendarChart').style.height = totalHeight + 'px';
+        const calendarChart = echarts.init(document.getElementById('calendarChart'), null, renderType);
+
+        calendarChart.setOption({
+            tooltip: { formatter: p => `${p.value[0]}<br>拍摄: <b>${p.value[1]}</b> 张` },
+            visualMap: {
+                min: 0,
+                max: Math.max(...Object.values(dateCounts)) || 5,
+                type: 'continuous', orient: 'horizontal', left: 'center', bottom: 10,
+                inRange: { color: ['#E0F2F1', THEME_COLOR] }
+            },
+            calendar: years.map((year, index) => ({
+                top: 40 + index * (yearBlockHeight + yearGap),
+                left: 80, right: 30, range: year, cellSize: ['auto', 20],
+                yearLabel: { show: true, position: 'left', margin: 40 },
+                dayLabel: { nameMap: 'cn' }, monthLabel: { nameMap: 'cn' },
+                itemStyle: { borderWidth: 0.5, borderColor: '#ccc' }
+            })),
+            series: years.map((year, index) => ({
+                type: 'heatmap', coordinateSystem: 'calendar', calendarIndex: index, data: chartData
+            }))
+        });
+
+        const mapChart = echarts.init(document.getElementById('mapChart'), null, renderType);
+        const provCountsRaw = countBy(data, 'province');
+        const mapData = [];
+        const allProvinces = ["北京市", "天津市", "河北省", "山西省", "内蒙古自治区", "辽宁省", "吉林省", "黑龙江省", "上海市", "江苏省", "浙江省", "安徽省", "福建省", "江西省", "山东省", "河南省", "湖北省", "湖南省", "广东省", "广西壮族自治区", "海南省", "重庆市", "四川省", "贵州省", "��南省", "西藏自治区", "陕西省", "甘肃省", "青海省", "宁夏回族自治区", "新疆维吾尔自治区", "香港特别行政区", "澳门特别行政区", "台湾省"];
+        
+        allProvinces.forEach(prov => {
+            let val = 0;
+            for(let k in provCountsRaw) {
+                if (normalizeProvinceName(k) === prov) { val = provCountsRaw[k]; break; }
+            }
+            mapData.push({ name: prov, value: val });
+        });
+
+        mapChart.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}<br/>拍摄: <b>{c}</b> 张' },
+            visualMap: {
+                type: 'piecewise', left: 'left', top: 'bottom',
+                pieces: [
+                    { min: 100, label: '> 100', color: '#004D40' },
+                    { min: 20, max: 99, label: '20 - 99', color: '#00796B' }, 
+                    { min: 5, max: 19, label: '5 - 19', color: '#26A69A' },
+                    { min: 1, max: 4, label: '1 - 4', color: '#80CBC4' },
+                    { value: 0, label: '0', color: '#ffffff' }
+                ]
+            },
+            geo: { map: 'china', roam: true, emphasis: { itemStyle: { areaColor: '#FFD54F' } }, itemStyle: { areaColor: '#ffffff', borderColor: '#999' } },
+            series: [{ name: '照片数量', type: 'map', geoIndex: 0, data: mapData }]
+        });
+
+        const focalChart = echarts.init(document.getElementById('focalChart'), null, renderType);
+        const focalCounts = countBy(data, 'focal_length_35mm'); delete focalCounts['-1'];
+        const sortedFocals = Object.keys(focalCounts).sort((a,b) => parseInt(a) - parseInt(b));
+        focalChart.setOption({
+            tooltip: { trigger: 'axis' },
+            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+            xAxis: { type: 'category', data: sortedFocals.map(f => f + 'mm') },
+            yAxis: { type: 'value' },
+            series: [{
+                data: sortedFocals.map(f => focalCounts[f]),
+                type: 'bar', barWidth: '60%',
+                itemStyle: { 
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#4DB6AC' }, { offset: 1, color: THEME_COLOR }]),
+                    borderRadius: [4, 4, 0, 0]
+                }
+            }]
+        });
+
+        const toneKeyChart = echarts.init(document.getElementById('toneKeyChart'), null, renderType);
+        const tkCounts = countBy(data, 'tone_key');
+        toneKeyChart.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}<br/>数量: <b>{c}</b><br/>占比: <b>{d}%</b>' },
+            legend: { top: '5%' },
+            series: [{
+                name: '影调', type: 'pie', radius: [20, 100], center: ['50%', '60%'], roseType: 'area',
+                itemStyle: { borderRadius: 5 },
+                data: [
+                    { value: tkCounts['High']||0, name: '高调', itemStyle: { color: '#B2DFDB' } },
+                    { value: tkCounts['Mid']||0, name: '中间调', itemStyle: { color: '#009688' } },
+                    { value: tkCounts['Low']||0, name: '低调', itemStyle: { color: '#004D40' } }
+                ]
+            }]
+        });
+
+        const toneContrastChart = echarts.init(document.getElementById('toneContrastChart'), null, renderType);
+        const tcCounts = countBy(data, 'tone_contrast');
+        toneContrastChart.setOption({
+            tooltip: { trigger: 'item', formatter: '{b}<br/>数量: <b>{c}</b><br/>占比: <b>{d}%</b>' },
+            legend: { top: '5%' },
+            series: [{
+                name: '对比度', type: 'pie', radius: ['40%', '70%'],
+                itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 }, 
+                label: { show: false, position: 'center' },
+                data: [
+                    { value: tcCounts['Hard']||0, name: '硬调', itemStyle: { color: '#263238' } },
+                    { value: tcCounts['Soft']||0, name: '柔调', itemStyle: { color: '#cfd8dc' } }
+                ]
+            }]
+        });
+
+        const sceneChart = echarts.init(document.getElementById('sceneChart'), null, renderType);
+        const sceneCounts = countBy(data, 'scene_type');
+        const sTotal = (sceneCounts['Indoor']||0) + (sceneCounts['Outdoor']||0);
+        sceneChart.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: p => `${p[0].name}<br/>数量: <b>${p[0].value}</b><br/>占比: <b>${sTotal ? ((p[0].value/sTotal)*100).toFixed(2) : 0}%</b>` },
+            grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+            xAxis: { type: 'value' }, yAxis: { type: 'category', data: ['室内', '室外'] },
+            series: [{
+                type: 'bar',
+                data: [{ value: sceneCounts['Indoor']||0, itemStyle: { color: '#795548' } }, { value: sceneCounts['Outdoor']||0, itemStyle: { color: '#29B6F6' } }],
+                label: { show: true, position: 'right' }
+            }]
+        });
+
+        const compChart = echarts.init(document.getElementById('compChart'), null, renderType);
+        const compCounts = countBy(data, 'composition');
+        const cTotal = (compCounts['Landscape']||0) + (compCounts['Portrait']||0) + (compCounts['Square']||0);
+        compChart.setOption({
+            tooltip: { formatter: info => `${info.name}<br/>数量: <b>${info.value}</b><br/>占比: <b>${cTotal ? ((info.value/cTotal)*100).toFixed(2) : 0}%</b>` },
+            series: [{
+                type: 'treemap', roam: false, nodeClick: false, breadcrumb: { show: false },
+                itemStyle: { borderColor: '#fff', gapWidth: 2 },
+                data: [
+                    { name: '横构图', value: compCounts['Landscape']||0, itemStyle: { color: '#00695C' } },
+                    { name: '竖构图', value: compCounts['Portrait']||0, itemStyle: { color: '#00897B' } },
+                    { name: '方形', value: compCounts['Square']||0, itemStyle: { color: '#4DB6AC' } }
+                ]
+            }]
+        });
+
+        const tempChart = echarts.init(document.getElementById('tempChart'), null, renderType);
+        const tempBins={}; data.forEach(d=>{ const k=(Math.floor(d.temp_value/0.05)*0.05).toFixed(2); tempBins[k]=(tempBins[k]||0)+1; });
+        const tempKs=Object.keys(tempBins).sort((a,b)=>a-b);
+        tempChart.setOption({tooltip:{trigger:'axis'}, xAxis:{type:'category',data:tempKs}, yAxis:{type:'value'}, series:[{type:'bar',data:tempKs.map(k=>tempBins[k])}], visualMap:{show:false,dimension:0,min:0,max:tempKs.length-1,inRange:{color:['#1E88E5','#fff','#FB8C00']}}});
+        
+        const satChart = echarts.init(document.getElementById('satChart'), null, renderType);
+        const satBins={}; data.forEach(d=>{ const k=(Math.floor(d.saturation_value*10)/10).toFixed(1); satBins[k]=(satBins[k]||0)+1; });
+        const satKs=['0.0','0.1','0.2','0.3','0.4','0.5','0.6','0.7','0.8','0.9','1.0'];
+        satChart.setOption({tooltip:{trigger:'axis'}, xAxis:{type:'category',data:satKs}, yAxis:{type:'value'}, series:[{type:'bar',data:satKs.map(k=>satBins[k]||0)}], visualMap:{show:false,dimension:0,min:0,max:10,inRange:{color:['#9E9E9E','#FF5722']}}});
+
+        const shutterChart = echarts.init(document.getElementById('shutterChart'), null, renderType);
+        const shBins = [
+            { label: '>1s', min: 1.0, max: Infinity },
+            { label: '1s-1/10', min: 0.1, max: 1.0 },
+            { label: '1/10-1/50', min: 0.02, max: 0.1 },
+            { label: '1/50-1/100', min: 0.01, max: 0.02 },
+            { label: '1/100-1/250', min: 0.004, max: 0.01 },
+            { label: '1/250-1/500', min: 0.002, max: 0.004 },
+            { label: '1/500-1/1000', min: 0.001, max: 0.002 },
+            { label: '1/1000-1/2000', min: 0.0005, max: 0.001 },
+            { label: '1/2000-1/4000', min: 0.00025, max: 0.0005 },
+            { label: '<1/4000', min: 0, max: 0.00025 }
+        ];
+        const shCounts = Array(shBins.length).fill(0);
+        data.forEach(d => {
+            const v = parseShutter(d.shutter_speed);
+            if (v > 0) {
+                for (let i = 0; i < shBins.length; i++) {
+                    if (v > shBins[i].min && v <= shBins[i].max) { shCounts[i]++; break; }
+                }
+            }
+        });
+        
+        shutterChart.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            grid: { bottom: '15%', left: '50', right: '20' },
+            xAxis: { 
+                type: 'category', 
+                data: shBins.map(b => b.label),
+                axisLabel: { interval: 0, rotate: 30 } 
+            }, 
+            yAxis: { type: 'value', name: '照片张数' },
+            series: [{ 
+                type: 'bar', 
+                data: shCounts, 
+                itemStyle: { color: THEME_COLOR, borderRadius: [4, 4, 0, 0] },
+                label: { show: true, position: 'top' }
+            }]
+        });
+
+        const timeDistChart = echarts.init(document.getElementById('timeDistChart'), null, renderType);
+        const hourCounts = Array(24).fill(0);
+        data.forEach(d => {
+            if(d.time_taken) {
+                const hour = parseInt(d.time_taken.split(':')[0]);
+                if(!isNaN(hour)) hourCounts[hour]++;
+            }
+        });
+
+        timeDistChart.setOption({
+            polar: { radius: [30, '80%'] },
+            angleAxis: { type: 'category', data: Array.from({length: 24}, (_, i) => i + ':00'), boundaryGap: false, splitLine: { show: true } },
+            radiusAxis: { min: 0, z: 10, splitLine: { show: false } },
+            tooltip: { trigger: 'axis', formatter: '{b}<br/>拍摄: {c} 张' },
+            series: [{
+                type: 'bar',
+                data: hourCounts,
+                coordinateSystem: 'polar',
+                itemStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: THEME_COLOR },
+                        { offset: 1, color: '#80CBC4' }
+                    ])
+                }
+            }]
+        });
+
+        const colorRingChart = echarts.init(document.getElementById('colorRingChart'), null, renderType);
+        const sortedByDate = [...data].sort((a, b) => new Date(a.date_taken) - new Date(b.date_taken));
+        const ringTooltipFormatter = params => {
+            return `文件: <b>${params.data.file_name}</b><br/>` +
+                   `日期: ${params.data.date_taken}<br/>` +
+                   `色值: <span style="display:inline-block;width:10px;height:10px;background:${params.color};margin-right:5px;border:1px solid #ccc;vertical-align:middle;"></span><b>${params.color}</b>`;
+        };
+
+        colorRingChart.setOption({
+            tooltip: { trigger: 'item', formatter: ringTooltipFormatter },
+            series: [{
+                type: 'pie', 
+                radius: ['50%', '85%'], 
+                center: ['50%', '50%'],
+                itemStyle: { borderColor: '#fff', borderWidth: 0.1 }, 
+                label: { show: false },
+                data: sortedByDate.map(item => ({ 
+                    value: 1, 
+                    name: item.date_taken, 
+                    file_name: item.file_name, 
+                    date_taken: item.date_taken,
+                    itemStyle: { color: item.dominant_color } 
+                })), 
+                clockwise: true, startAngle: 90
+            }]
+        });
+
+        const hueRingChart = echarts.init(document.getElementById('hueRingChart'), null, renderType);
+        const sortedByHue = [...data].map(item => {
+            const rgb = hexToRgb(item.dominant_color);
+            const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+            return { ...item, _hue: hsl.h };
+        }).sort((a, b) => a._hue - b._hue);
+
+        hueRingChart.setOption({
+            tooltip: { trigger: 'item', formatter: ringTooltipFormatter },
+            series: [{
+                type: 'pie', 
+                radius: ['50%', '85%'], 
+                center: ['50%', '50%'],
+                itemStyle: { borderColor: '#fff', borderWidth: 0.1 }, 
+                label: { show: false },
+                data: sortedByHue.map(item => ({ 
+                    value: 1, 
+                    name: item.date_taken, 
+                    file_name: item.file_name, 
+                    date_taken: item.date_taken,
+                    itemStyle: { color: item.dominant_color } 
+                })), 
+                clockwise: true, startAngle: 90
+            }]
+        });
+
+        const evolutionChart = echarts.init(document.getElementById('evolutionChart'), null, renderType);
+        const evoData = sortedByDate.filter(d => d.date_taken !== 'Unknown' && d.focal_length_35mm > 0).map(d => [d.date_taken, d.focal_length_35mm, d.scene_type, d.file_name]);
+        evolutionChart.setOption({
+            tooltip: { formatter: obj => `日期: ${obj.value[0]}<br/>焦距: ${obj.value[1]}mm<br/>场景: ${obj.value[2]}<br/>文件: ${obj.value[3]}` },
+            legend: { data: ['室内', '室外'], bottom: 0 },
+            grid: { top: '10%', bottom: '15%', left: '5%', right: '5%' },
+            xAxis: { type: 'time' }, yAxis: { type: 'value', name: '焦距 (mm)', min: 0 },
+            series: [
+                { name: '室内', type: 'scatter', symbolSize: 8, itemStyle: { color: '#795548', opacity: 0.7 }, data: evoData.filter(i => i[2] === 'Indoor') },
+                { name: '室外', type: 'scatter', symbolSize: 8, itemStyle: { color: '#29B6F6', opacity: 0.7 }, data: evoData.filter(i => i[2] === 'Outdoor') }
+            ]
+        });
+
+        const focalShutterHeatmap = echarts.init(document.getElementById('focalShutterHeatmap'), null, renderType);
+        const fBins = [0, 24, 35, 50, 85, 135, 200, 1000];
+        const fBinsLabels = ['<24', '24-35', '35-50', '50-85', '85-135', '135-200', '>200'];
+        const sBinsLabels = ['长曝光 (>1s)', '慢门 (1s-1/10)', '常速 (1/10-1/100)', '高速 (1/100-1/1000)', '极速 (<1/1000)'];
+        const heatmapData = [];
+        for(let i=0; i<fBinsLabels.length; i++) for(let j=0; j<sBinsLabels.length; j++) heatmapData.push([i, j, 0]);
+        data.forEach(d => {
+            const f = d.focal_length_35mm;
+            const sVal = parseShutter(d.shutter_speed);
+            if(f > 0 && sVal > 0) {
+                let fIdx = fBinsLabels.length - 1;
+                for(let i=0; i<fBins.length-1; i++) if(f >= fBins[i] && f < fBins[i+1]) { fIdx = i; break; }
+                let sIdx = -1;
+                if (sVal >= 1) sIdx = 0; else if (sVal >= 0.1) sIdx = 1; else if (sVal >= 0.01) sIdx = 2; else if (sVal >= 0.001) sIdx = 3; else sIdx = 4;
+                const target = heatmapData.find(item => item[0]===fIdx && item[1]===sIdx);
+                if(target) target[2]++;
+            }
+        });
+
+        focalShutterHeatmap.setOption({
+            tooltip: { position: 'top' },
+            grid: { height: '70%', top: '10%', left: 130, right: 80 }, 
+            xAxis: { type: 'category', data: fBinsLabels, name: '焦距 (mm)' },
+            yAxis: { type: 'category', data: sBinsLabels, name: '快门速度' },
+            visualMap: {
+                min: 0, max: Math.max(...heatmapData.map(d=>d[2])),
+                calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+                inRange: { color: ['#f5f7fa', '#00695C'] }
+            },
+            series: [{
+                type: 'heatmap', data: heatmapData, label: { show: true },
+                itemStyle: { emphasis: { shadowBlur: 10, shadowColor: 'rgba(0, 0, 0, 0.5)' } }
+            }]
+        });
+
+        const seasonalChart = echarts.init(document.getElementById('seasonalColorChart'), null, renderType);
+        const seasonGroups = {};
+        data.forEach(d => {
+            if(d.date_taken !== 'Unknown') {
+                const date = new Date(d.date_taken);
+                let year = date.getFullYear();
+                const month = date.getMonth();
+                let seasonName;
+                if (month === 11 || month === 0 || month === 1) {
+                    seasonName = '冬';
+                    if (month <= 1) year -= 1; 
+                } else if (month >= 2 && month <= 4) seasonName = '春';
+                else if (month >= 5 && month <= 7) seasonName = '夏';
+                else seasonName = '秋';
+
+                const key = `${year} ${seasonName}`;
+                if(!seasonGroups[key]) seasonGroups[key] = {r:0,g:0,b:0,count:0};
+                const rgb = hexToRgb(d.dominant_color);
+                if(rgb) {
+                    seasonGroups[key].r += rgb.r; seasonGroups[key].g += rgb.g; seasonGroups[key].b += rgb.b;
+                    seasonGroups[key].count++;
+                }
+            }
+        });
+
+        const seasonOrder = {'春': 1, '夏': 2, '秋': 3, '冬': 4};
+        const sDataX = Object.keys(seasonGroups).sort((a, b) => {
+            const [yearA, snA] = a.split(' ');
+            const [yearB, snB] = b.split(' ');
+            return yearA !== yearB ? yearA - yearB : seasonOrder[snA] - seasonOrder[snB];
+        });
+
+        const sDataColor = sDataX.map(k => {
+            const item = seasonGroups[k];
+            let r = item.r/item.count, g = item.g/item.count, b = item.b/item.count;
+            let hsl = rgbToHsl(r, g, b);
+            hsl.s = Math.min(1.0, hsl.s * 1.3 + 0.1); hsl.l = Math.max(0.4, Math.min(0.8, hsl.l * 1.2)); 
+            const n = hslToRgb(hsl.h, hsl.s, hsl.l);
+            return rgbToHex(n.r, n.g, n.b);
+        });
+
+        seasonalChart.setOption({
+            tooltip: { formatter: p => `${p.name}<br/><span style="display:inline-block;width:10px;height:10px;background:${p.color};margin-right:5px;border:1px solid #ccc;"></span>${p.color}` },
+            xAxis: { type: 'category', data: sDataX }, yAxis: { show: false },
+            series: [{ type: 'bar', data: sDataX.map((k, i) => ({ value: 1, itemStyle: { color: sDataColor[i] } })), barWidth: '100%' }]
+        });
+
+        const sankeyChart = echarts.init(document.getElementById('sankeyChart'), null, renderType);
+        const linksObj = {}; const nodesSet = new Set();
+        const sortedForGraph = [...data].sort((a, b) => new Date(a.date_taken) - new Date(b.date_taken));
+        for (let i = 0; i < sortedForGraph.length - 1; i++) {
+            const curr = sortedForGraph[i].province; const next = sortedForGraph[i+1].province;
+            if (curr === '未知' || next === '未知' || curr === 'Unknown' || next === 'Unknown' || curr === next) continue;
+            nodesSet.add(curr); nodesSet.add(next);
+            const key = `${curr}>${next}`; linksObj[key] = (linksObj[key] || 0) + 1;
+        }
+        const graphData = Array.from(nodesSet).map(n => ({ 
+            name: n, 
+            symbolSize: Math.min(50, Math.max(20, provCountsRaw[n] || 10)), 
+            value: provCountsRaw[n] || 0 
+        }));
+        const graphLinks = Object.keys(linksObj).map(k => {
+            const [src, tgt] = k.split('>');
+            return { 
+                source: src, 
+                target: tgt, 
+                value: linksObj[k], 
+                lineStyle: { width: Math.max(1, linksObj[k]) } 
+            };
+        });
+
+        sankeyChart.setOption({
+            tooltip: {},
+            series: [{
+                type: 'graph', layout: 'circular', data: graphData, links: graphLinks,
+                roam: false,
+                label: { show: true, position: 'right', formatter: '{b}' },
+                itemStyle: { color: THEME_COLOR },
+                edgeSymbol: ['circle', 'arrow'], edgeSymbolSize: [4, 10],
+                lineStyle: { color: THEME_COLOR, curveness: 0.3 },
+                emphasis: { focus: 'adjacency', lineStyle: { width: 4 } }
+            }]
+        });
+
+        const quadrantChart = echarts.init(document.getElementById('quadrantChart'), null, renderType);
+        const quadData = data.map(d => [parseFloat(d.temp_value), parseFloat(d.saturation_value), d.dominant_color, d.file_name]).filter(d => !isNaN(d[0]) && !isNaN(d[1]));
+        quadrantChart.setOption({
+            tooltip: { formatter: p => `文件: ${p.data[3]}<br>色温: ${p.data[0]}<br>饱和: ${p.data[1]}` },
+            grid: { top: 30, right: 30, bottom: 60, left: 60 }, 
+            xAxis: { 
+                name: '色温倾向', nameLocation: 'middle', nameGap: 35,
+                type: 'value', min: -1, max: 1, axisLine: { onZero: true, lineStyle: { width: 2 } } 
+            },
+            yAxis: { 
+                name: '色彩饱和度', nameLocation: 'middle', nameGap: 40,
+                type: 'value', min: 0, max: 1
+            },
+            series: [{
+                type: 'scatter', symbolSize: 8, data: quadData,
+                itemStyle: { color: p => p.data[2], borderColor: '#666', borderWidth: 0.5, opacity: 0.7 },
+                markArea: {
+                    silent: true, itemStyle: { opacity: 0.05 },
+                    data: [
+                        [{ name: '暖调高饱和', xAxis: 0, yAxis: 0.5, itemStyle:{color:'#FFEB3B'} }, { xAxis: 1, yAxis: 1 }],
+                        [{ name: '冷调低饱和', xAxis: -1, yAxis: 0, itemStyle:{color:'#2196F3'} }, { xAxis: 0, yAxis: 0.5 }]
+                    ]
+                }
+            }]
+        });
+
+        window.addEventListener('resize', () => {
+            [calendarChart, mapChart, focalChart, toneKeyChart, toneContrastChart, sceneChart, compChart, tempChart, satChart, shutterChart, timeDistChart, colorRingChart, hueRingChart, evolutionChart, focalShutterHeatmap, seasonalChart, sankeyChart, quadrantChart].forEach(c => c.resize());
+        });
+    }
+</script>
+
+</body>
+</html>
