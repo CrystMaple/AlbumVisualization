@@ -344,7 +344,7 @@
     }
 
     $(document).ready(function() {
-        $.get('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json', function (chinaJson) {
+        $.get('china.json', function (chinaJson) {
             echarts.registerMap('china', chinaJson);
             fetch('data.json')
                 .then(response => response.json())
